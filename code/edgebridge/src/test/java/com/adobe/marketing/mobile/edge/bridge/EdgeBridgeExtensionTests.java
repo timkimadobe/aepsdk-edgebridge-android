@@ -26,6 +26,7 @@ import com.adobe.marketing.mobile.ExtensionApi;
 import com.adobe.marketing.mobile.ExtensionEventListener;
 import com.adobe.marketing.mobile.util.TimeUtils;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
@@ -1050,6 +1051,8 @@ public class EdgeBridgeExtensionTests {
 		verify(mockExtensionApi, never()).dispatch(any(Event.class));
 	}
 
+	// Test using prefixed key of '&&' is not included in request as it produces an empty string key,
+	// and that event is still dispatched since there is other valid data
 	@Test
 	public void testHandleTrackEvent_withContextDataFieldUsingReservedPrefix_emptyKeyName_dispatchesEdgeRequestEvent_emptyKeysIgnored() {
 		final Event event = new Event.Builder("Test Track Event", EventType.GENERIC_TRACK, EventSource.REQUEST_CONTENT)
@@ -1096,6 +1099,332 @@ public class EdgeBridgeExtensionTests {
 											new HashMap<String, Object>() {
 												{
 													put("c1", "propValue");
+												}
+											}
+										);
+									}
+								}
+							);
+						}
+					}
+				);
+				put(
+					"xdm",
+					new HashMap<String, Object>() {
+						{
+							put("eventType", EdgeBridgeTestConstants.JsonValues.EVENT_TYPE);
+							put(
+								"timestamp",
+								TimeUtils.getISO8601UTCDateWithMilliseconds(new Date(event.getTimestamp()))
+							);
+						}
+					}
+				);
+			}
+		};
+
+		assertEquals(expectedData, responseEvent.getEventData());
+		assertEquals(event.getUniqueIdentifier(), responseEvent.getParentID());
+	}
+
+	// Test empty string keys are not allowed
+	@Test
+	public void testHandleTrackEvent_withContextDataField_emptyKeyName_dispatchesEdgeRequestEvent_emptyKeysIgnored() {
+		final Event event = new Event.Builder("Test Track Event", EventType.GENERIC_TRACK, EventSource.REQUEST_CONTENT)
+			.setEventData(
+				new HashMap<String, Object>() {
+					{
+						put(
+							"contextdata",
+							new HashMap<String, Object>() {
+								{
+									put("key", "value");
+									put("", "valueEmptyKey");
+								}
+							}
+						);
+					}
+				}
+			)
+			.build();
+
+		extension.handleTrackRequest(event);
+
+		ArgumentCaptor<Event> dispatchedEventCaptor = ArgumentCaptor.forClass(Event.class);
+
+		verify(mockExtensionApi, times(1)).dispatch(dispatchedEventCaptor.capture());
+
+		Event responseEvent = dispatchedEventCaptor.getAllValues().get(0);
+		assertEquals(EventType.EDGE, responseEvent.getType());
+		assertEquals(EventSource.REQUEST_CONTENT, responseEvent.getSource());
+		assertEquals(EdgeBridgeTestConstants.EventNames.EDGE_BRIDGE_REQUEST, responseEvent.getName());
+
+		Map<String, Object> expectedData = new HashMap<String, Object>() {
+			{
+				put(
+					"data",
+					new HashMap<String, Object>() {
+						{
+							put(
+								"__adobe",
+								new HashMap<String, Object>() {
+									{
+										put(
+											"analytics",
+											new HashMap<String, Object>() {
+												{
+													put(
+														"contextData",
+														new HashMap<String, String>() {
+															{
+																put("key", "value");
+															}
+														}
+													);
+												}
+											}
+										);
+									}
+								}
+							);
+						}
+					}
+				);
+				put(
+					"xdm",
+					new HashMap<String, Object>() {
+						{
+							put("eventType", EdgeBridgeTestConstants.JsonValues.EVENT_TYPE);
+							put(
+								"timestamp",
+								TimeUtils.getISO8601UTCDateWithMilliseconds(new Date(event.getTimestamp()))
+							);
+						}
+					}
+				);
+			}
+		};
+
+		assertEquals(expectedData, responseEvent.getEventData());
+		assertEquals(event.getUniqueIdentifier(), responseEvent.getParentID());
+	}
+
+	@Test
+	public void testHandleTrackEvent_withContextDataField_nullKeyName_dispatchesEdgeRequestEvent_nullKeysIgnored() {
+		final Event event = new Event.Builder("Test Track Event", EventType.GENERIC_TRACK, EventSource.REQUEST_CONTENT)
+			.setEventData(
+				new HashMap<String, Object>() {
+					{
+						put("state", "test state");
+						put(
+							"contextdata",
+							new HashMap<String, Object>() {
+								{
+									put("key", "value");
+									put(null, "valueNullKey");
+								}
+							}
+						);
+					}
+				}
+			)
+			.build();
+
+		extension.handleTrackRequest(event);
+
+		ArgumentCaptor<Event> dispatchedEventCaptor = ArgumentCaptor.forClass(Event.class);
+
+		verify(mockExtensionApi, times(1)).dispatch(dispatchedEventCaptor.capture());
+
+		Event responseEvent = dispatchedEventCaptor.getAllValues().get(0);
+		assertEquals(EventType.EDGE, responseEvent.getType());
+		assertEquals(EventSource.REQUEST_CONTENT, responseEvent.getSource());
+		assertEquals(EdgeBridgeTestConstants.EventNames.EDGE_BRIDGE_REQUEST, responseEvent.getName());
+
+		Map<String, Object> expectedData = new HashMap<String, Object>() {
+			{
+				put(
+					"data",
+					new HashMap<String, Object>() {
+						{
+							put(
+								"__adobe",
+								new HashMap<String, Object>() {
+									{
+										put(
+											"analytics",
+											new HashMap<String, Object>() {
+												{
+													put("pageName", "test state");
+													put(
+														"contextData",
+														new HashMap<String, String>() {
+															{
+																put("key", "value");
+															}
+														}
+													);
+												}
+											}
+										);
+									}
+								}
+							);
+						}
+					}
+				);
+				put(
+					"xdm",
+					new HashMap<String, Object>() {
+						{
+							put("eventType", EdgeBridgeTestConstants.JsonValues.EVENT_TYPE);
+							put(
+								"timestamp",
+								TimeUtils.getISO8601UTCDateWithMilliseconds(new Date(event.getTimestamp()))
+							);
+						}
+					}
+				);
+			}
+		};
+
+		assertEquals(expectedData, responseEvent.getEventData());
+		assertEquals(event.getUniqueIdentifier(), responseEvent.getParentID());
+	}
+
+	@Test
+	public void testHandleTrackEvent_withContextDataField_emptyValue_dispatchesEdgeRequestEvent() {
+		final Event event = new Event.Builder("Test Track Event", EventType.GENERIC_TRACK, EventSource.REQUEST_CONTENT)
+			.setEventData(
+				new HashMap<String, Object>() {
+					{
+						put(
+							"contextdata",
+							new HashMap<String, Object>() {
+								{
+									put("emptyValue", "");
+								}
+							}
+						);
+					}
+				}
+			)
+			.build();
+
+		extension.handleTrackRequest(event);
+
+		ArgumentCaptor<Event> dispatchedEventCaptor = ArgumentCaptor.forClass(Event.class);
+
+		verify(mockExtensionApi, times(1)).dispatch(dispatchedEventCaptor.capture());
+
+		Event responseEvent = dispatchedEventCaptor.getAllValues().get(0);
+		assertEquals(EventType.EDGE, responseEvent.getType());
+		assertEquals(EventSource.REQUEST_CONTENT, responseEvent.getSource());
+		assertEquals(EdgeBridgeTestConstants.EventNames.EDGE_BRIDGE_REQUEST, responseEvent.getName());
+
+		Map<String, Object> expectedData = new HashMap<String, Object>() {
+			{
+				put(
+					"data",
+					new HashMap<String, Object>() {
+						{
+							put(
+								"__adobe",
+								new HashMap<String, Object>() {
+									{
+										put(
+											"analytics",
+											new HashMap<String, Object>() {
+												{
+													put(
+														"contextData",
+														new HashMap<String, String>() {
+															{
+																put("emptyValue", "");
+															}
+														}
+													);
+												}
+											}
+										);
+									}
+								}
+							);
+						}
+					}
+				);
+				put(
+					"xdm",
+					new HashMap<String, Object>() {
+						{
+							put("eventType", EdgeBridgeTestConstants.JsonValues.EVENT_TYPE);
+							put(
+								"timestamp",
+								TimeUtils.getISO8601UTCDateWithMilliseconds(new Date(event.getTimestamp()))
+							);
+						}
+					}
+				);
+			}
+		};
+
+		assertEquals(expectedData, responseEvent.getEventData());
+		assertEquals(event.getUniqueIdentifier(), responseEvent.getParentID());
+	}
+
+	@Test
+	public void testHandleTrackEvent_withContextDataField_nullValue_dispatchesEdgeRequestEvent_nilValuesIgnored() {
+		final Event event = new Event.Builder("Test Track Event", EventType.GENERIC_TRACK, EventSource.REQUEST_CONTENT)
+			.setEventData(
+				new HashMap<String, Object>() {
+					{
+						put(
+							"contextdata",
+							new HashMap<String, Object>() {
+								{
+									put("key", "value");
+									put("nullValue", null);
+								}
+							}
+						);
+					}
+				}
+			)
+			.build();
+
+		extension.handleTrackRequest(event);
+
+		ArgumentCaptor<Event> dispatchedEventCaptor = ArgumentCaptor.forClass(Event.class);
+
+		verify(mockExtensionApi, times(1)).dispatch(dispatchedEventCaptor.capture());
+
+		Event responseEvent = dispatchedEventCaptor.getAllValues().get(0);
+		assertEquals(EventType.EDGE, responseEvent.getType());
+		assertEquals(EventSource.REQUEST_CONTENT, responseEvent.getSource());
+		assertEquals(EdgeBridgeTestConstants.EventNames.EDGE_BRIDGE_REQUEST, responseEvent.getName());
+
+		Map<String, Object> expectedData = new HashMap<String, Object>() {
+			{
+				put(
+					"data",
+					new HashMap<String, Object>() {
+						{
+							put(
+								"__adobe",
+								new HashMap<String, Object>() {
+									{
+										put(
+											"analytics",
+											new HashMap<String, Object>() {
+												{
+													put(
+														"contextData",
+														new HashMap<String, String>() {
+															{
+																put("key", "value");
+															}
+														}
+													);
 												}
 											}
 										);
@@ -1313,6 +1642,7 @@ public class EdgeBridgeExtensionTests {
 		assertEquals(event.getUniqueIdentifier(), responseEvent.getParentID());
 	}
 
+	// Tests that top level properties are unaffected by Analytics keys mapping formatting validation
 	@Test
 	public void testHandleTrackEvent_mapsNullAndEmptyValues_dispatchesEdgeRequestEvent() {
 		final Event event = new Event.Builder("Test Track Event", EventType.GENERIC_TRACK, EventSource.REQUEST_CONTENT)
@@ -1321,14 +1651,121 @@ public class EdgeBridgeExtensionTests {
 					{
 						put("key3", "");
 						put("key4", null);
+						put(null, "valueNullKey"); // This is filtered out by setEventData
+					}
+				}
+			)
+			.build();
+
+		extension.handleTrackRequest(event);
+
+		ArgumentCaptor<Event> dispatchedEventCaptor = ArgumentCaptor.forClass(Event.class);
+
+		verify(mockExtensionApi, times(1)).dispatch(dispatchedEventCaptor.capture());
+
+		Event responseEvent = dispatchedEventCaptor.getAllValues().get(0);
+		assertEquals(EventType.EDGE, responseEvent.getType());
+		assertEquals(EventSource.REQUEST_CONTENT, responseEvent.getSource());
+		assertEquals(EdgeBridgeTestConstants.EventNames.EDGE_BRIDGE_REQUEST, responseEvent.getName());
+
+		Map<String, Object> expectedData = new HashMap<String, Object>() {
+			{
+				put(
+					"data",
+					new HashMap<String, Object>() {
+						{
+							put("key3", "");
+							put("key4", null);
+						}
+					}
+				);
+				put(
+					"xdm",
+					new HashMap<String, Object>() {
+						{
+							put("eventType", EdgeBridgeTestConstants.JsonValues.EVENT_TYPE);
+							put(
+								"timestamp",
+								TimeUtils.getISO8601UTCDateWithMilliseconds(new Date(event.getTimestamp()))
+							);
+						}
+					}
+				);
+			}
+		};
+
+		assertEquals(expectedData, responseEvent.getEventData());
+		assertEquals(event.getUniqueIdentifier(), responseEvent.getParentID());
+	}
+
+	// Test context data values are cleaned such that only String type is allowed.
+	//
+	// NOTE: Android is stricter than iOS because of the Map<String, String> public API requirement
+	// and its enforcement in `cleanContextData` - `char` and number types are not allowed
+	@Test
+	public void testHandleTrackEvent_withContextData_valuesOfWrongTypes_dispatchesEdgeRequestEvent_valuesOfWrongTypesDropped() {
+		class SimpleClass {
+
+			public final Map<String, Object> data;
+
+			public SimpleClass(Map<String, Object> data) {
+				this.data = data;
+			}
+		}
+
+		final char charValue = '\u0041';
+		final Event event = new Event.Builder("Test Track Event", EventType.GENERIC_TRACK, EventSource.REQUEST_CONTENT)
+			.setEventData(
+				new HashMap<String, Object>() {
+					{
 						put(
 							"contextdata",
 							new HashMap<String, Object>() {
 								{
-									put("&&key1", "");
-									put("&&key2", null);
-									put("key5", "");
-									put("key6", null);
+									put("keyString", "valueString");
+									put("keyNumber", 5);
+									put("keyCharacter", charValue);
+									put("&&v1", "evar1");
+									put("&&v2", 10);
+									put("&&v3", charValue);
+									put(
+										"keyDict",
+										new HashMap<String, String>() {
+											{
+												put("hello", "world");
+											}
+										}
+									);
+									put(
+										"keyArray",
+										new ArrayList<String>() {
+											{
+												add("one");
+												add("two");
+												add("three");
+											}
+										}
+									);
+									// NOTE: this causes the event `setEventData` to fail
+									//									put(
+									//										"keyObj",
+									//										new SimpleClass(
+									//											new HashMap<String, Object>() {
+									//												{
+									//													put("key", "value");
+									//												}
+									//											}
+									//										)
+									//									);
+									put("&&events", Arrays.asList("event1", "event2"));
+									put(
+										"&&c1",
+										new HashMap<String, String>() {
+											{
+												put("prop1", "propValue");
+											}
+										}
+									);
 								}
 							}
 						);
@@ -1354,8 +1791,6 @@ public class EdgeBridgeExtensionTests {
 					"data",
 					new HashMap<String, Object>() {
 						{
-							put("key3", "");
-							put("key4", null);
 							put(
 								"__adobe",
 								new HashMap<String, Object>() {
@@ -1364,12 +1799,12 @@ public class EdgeBridgeExtensionTests {
 											"analytics",
 											new HashMap<String, Object>() {
 												{
-													put("key1", "");
+													put("v1", "evar1");
 													put(
 														"contextData",
-														new HashMap<String, String>() {
+														new HashMap<String, Object>() {
 															{
-																put("key5", "");
+																put("keyString", "valueString");
 															}
 														}
 													);
@@ -1386,7 +1821,7 @@ public class EdgeBridgeExtensionTests {
 					"xdm",
 					new HashMap<String, Object>() {
 						{
-							put("eventType", EdgeBridgeTestConstants.JsonValues.EVENT_TYPE);
+							put("eventType", "analytics.track");
 							put(
 								"timestamp",
 								TimeUtils.getISO8601UTCDateWithMilliseconds(new Date(event.getTimestamp()))
